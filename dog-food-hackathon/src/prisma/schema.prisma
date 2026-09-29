@@ -1,0 +1,366 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../app/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserRole {
+  PARTICIPANT
+  ADMIN
+}
+
+enum HackathonPhase {
+  REGISTRATION
+  SUBMISSION
+  JUDGING
+  COMPLETED
+}
+
+enum ElevationRequestStatus {
+  PENDING
+  APPROVED
+  BLOCKED
+}
+
+enum JudgeInvitationStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+}
+
+model User {
+  id            String   @id @default(uuid())
+  name          String   @db.Text
+  bio           String?  @db.Text
+  password_hash String   @db.Text
+  phone         String   @db.Text
+  email         String   @unique @db.Text
+  address       String?  @db.Text
+  role          UserRole @default(PARTICIPANT)
+  organization  String?  @db.Text
+  linkedinUrl   String?  @db.Text
+  gitUrl        String?  @db.Text
+  created_at    DateTime @default(now())
+  updated_at    DateTime @updatedAt
+  is_organizer  Boolean  @default(false)
+
+  userSkills          UserSkill[]
+  sessions            Session[]
+  organizedHackathons Hackathon[]            @relation("HackathonOrganizer")
+  judgeEntries        HackathonJudge[]
+  participantEntries  HackathonParticipant[]
+  elevationRequest    ElevationRequest[]
+  teamJoinRequests    TeamJoinRequest[]
+  auditLogs           AuditLog[]
+}
+
+model Skill {
+  id         String   @id @default(uuid())
+  name       String   @unique @db.Text
+  created_at DateTime @default(now())
+
+  users UserSkill[]
+}
+
+model UserSkill {
+  user_id  String
+  skill_id String
+
+  user  User  @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  skill Skill @relation(fields: [skill_id], references: [id], onDelete: Cascade)
+
+  @@id([user_id, skill_id])
+  @@index([skill_id])
+}
+
+model Session {
+  id         String   @id @default(uuid())
+  user_id    String
+  token_hash String   @unique @db.Text
+  expires_at DateTime
+  created_at DateTime @default(now())
+
+  user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id])
+  @@index([expires_at])
+}
+
+model Hackathon {
+  id          String         @id @default(uuid())
+  title       String         @db.Text
+  description String?        @db.Text
+  phase       HackathonPhase @default(REGISTRATION)
+
+  registration_start  DateTime
+  registration_end    DateTime
+  submission_deadline DateTime
+  judging_start       DateTime
+  judging_end         DateTime
+
+  min_team_size Int @default(1)
+  max_team_size Int @default(4)
+
+  organizer_id String
+
+  organizer User @relation("HackathonOrganizer", fields: [organizer_id], references: [id], onDelete: Restrict)
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  judges       HackathonJudge[]
+  participants HackathonParticipant[]
+  tracks       HackathonTrack[]
+  teams        Team[]
+  projects     Project[]
+  prizes       Prize[]
+  criteria     Criterion[]
+  auditLogs    AuditLog[]
+
+  @@index([organizer_id])
+}
+
+model HackathonTrack {
+  id           String   @id @default(uuid())
+  hackathon_id String
+  name         String   @db.Text
+  created_at   DateTime @default(now())
+  updated_at   DateTime @updatedAt
+
+  hackathon            Hackathon             @relation(fields: [hackathon_id], references: [id], onDelete: Cascade)
+  hackathonJudgeTracks HackathonJudgeTrack[]
+  projects             Project[]
+  prizes               Prize[]
+
+  @@unique([hackathon_id, name])
+  @@index([hackathon_id])
+}
+
+model HackathonJudge {
+  id           String                @id @default(uuid())
+  user_id      String
+  hackathon_id String
+  status       JudgeInvitationStatus @default(PENDING)
+  created_at   DateTime              @default(now())
+  responded_at DateTime?
+
+  user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  hackathon            Hackathon             @relation(fields: [hackathon_id], references: [id], onDelete: Cascade)
+  hackathonJudgeTracks HackathonJudgeTrack[]
+  reviews              Review[]
+
+  @@unique([user_id, hackathon_id])
+  @@index([hackathon_id])
+  @@index([user_id])
+  @@index([hackathon_id, status])
+}
+
+model HackathonParticipant {
+  id           String  @id @default(uuid())
+  user_id      String
+  hackathon_id String
+  team_id      String?
+
+  user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  hackathon Hackathon @relation(fields: [hackathon_id], references: [id], onDelete: Cascade)
+
+  team Team? @relation(fields: [team_id], references: [id], onDelete: SetNull)
+
+  is_team_leader Boolean @default(false)
+
+  @@unique([user_id, hackathon_id])
+  @@index([hackathon_id])
+  @@index([user_id])
+  @@index([team_id])
+}
+
+model Team {
+  id           String    @id @default(uuid())
+  hackathon_id String
+  name         String    @db.Text
+  invite_token String    @unique @db.Text
+  created_at   DateTime  @default(now())
+  updated_at   DateTime  @updatedAt
+  hackathon    Hackathon @relation(fields: [hackathon_id], references: [id], onDelete: Cascade)
+
+  participants     HackathonParticipant[]
+  teamJoinRequests TeamJoinRequest[]
+  project          Project?
+
+  @@unique([hackathon_id, name])
+  @@index([hackathon_id])
+}
+
+model ElevationRequest {
+  id         String                 @id @default(uuid())
+  user_id    String
+  created_at DateTime               @default(now())
+  updated_at DateTime               @updatedAt
+  status     ElevationRequestStatus @default(PENDING)
+
+  user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id])
+  @@index([status])
+}
+
+model TeamJoinRequest {
+  id         String   @id @default(uuid())
+  team_id    String
+  user_id    String
+  created_at DateTime @default(now())
+
+  team Team @relation(fields: [team_id], references: [id], onDelete: Cascade)
+  user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@unique([team_id, user_id])
+  @@index([team_id])
+  @@index([user_id])
+}
+
+model HackathonJudgeTrack {
+  judge_id String
+  track_id String
+
+  judge HackathonJudge @relation(fields: [judge_id], references: [id], onDelete: Cascade)
+  track HackathonTrack @relation(fields: [track_id], references: [id], onDelete: Cascade)
+
+  @@id([judge_id, track_id])
+  @@index([track_id])
+}
+
+enum ProjectStatus {
+  DRAFT
+  SUBMITTED
+}
+
+model Project {
+  id           String  @id @default(uuid())
+  hackathon_id String
+  team_id      String  @unique
+  track_id     String?
+
+  title          String  @db.Text
+  description    String  @db.Text
+  repository_url String? @db.Text
+  demo_url       String? @db.Text
+
+  status       ProjectStatus @default(DRAFT)
+  submitted_at DateTime?
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  hackathon Hackathon       @relation(fields: [hackathon_id], references: [id], onDelete: Cascade)
+  team      Team            @relation(fields: [team_id], references: [id], onDelete: Cascade)
+  track     HackathonTrack? @relation(fields: [track_id], references: [id], onDelete: Restrict)
+  reviews   Review[]
+
+  @@index([hackathon_id, status])
+  @@index([track_id])
+}
+
+model Prize {
+  id           String  @id @default(uuid())
+  hackathon_id String
+  track_id     String? // null = overall prize, set = track-specific prize
+
+  title       String  @db.Text
+  description String? @db.Text
+  amount_usd  Int? // optional, since some prizes are non-cash
+  position    Int // display/rank order: 1 = first place
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  hackathon Hackathon       @relation(fields: [hackathon_id], references: [id], onDelete: Cascade)
+  track     HackathonTrack? @relation(fields: [track_id], references: [id], onDelete: Cascade)
+
+  @@index([hackathon_id])
+  @@index([track_id])
+}
+
+model Criterion {
+  id           String   @id @default(uuid())
+  hackathon_id String
+  name         String   @db.Text
+  description  String?  @db.Text
+  weight       Int      @default(1) // must be > 0, validated in code
+  position     Int      @default(0) // display order
+  created_at   DateTime @default(now())
+  updated_at   DateTime @updatedAt
+
+  hackathon Hackathon     @relation(fields: [hackathon_id], references: [id], onDelete: Cascade)
+  scores    ReviewScore[]
+
+  @@unique([hackathon_id, name])
+  @@index([hackathon_id, position])
+}
+
+// One judge's review of one project. There is no separate assignment table:
+// eligibility is derived (accepted judge + track match + submitted project +
+// no conflict of interest). A row exists only once the judge starts scoring.
+enum ReviewStatus {
+  DRAFT
+  SUBMITTED
+}
+
+model Review {
+  id           String       @id @default(uuid())
+  judge_id     String // HackathonJudge.id, NOT User.id
+  project_id   String
+  comment      String?      @db.Text
+  status       ReviewStatus @default(DRAFT)
+  submitted_at DateTime?
+  created_at   DateTime     @default(now())
+  updated_at   DateTime     @updatedAt
+
+  judge   HackathonJudge @relation(fields: [judge_id], references: [id], onDelete: Cascade)
+  project Project        @relation(fields: [project_id], references: [id], onDelete: Cascade)
+  scores  ReviewScore[]
+
+  @@unique([judge_id, project_id])
+  @@index([project_id, status])
+  @@index([judge_id, status])
+}
+
+// value is on the five-point scale (1..5). Enforced in code and by a CHECK
+// constraint added in the migration (see notes).
+model ReviewScore {
+  review_id    String
+  criterion_id String
+  value        Int
+
+  review    Review    @relation(fields: [review_id], references: [id], onDelete: Cascade)
+  criterion Criterion @relation(fields: [criterion_id], references: [id], onDelete: Restrict)
+
+  @@id([review_id, criterion_id])
+  @@index([criterion_id])
+}
+
+// Append-only. Never updated or deleted by application code. hackathon_id has
+// no FK on purpose so the trail survives event deletion. actor_id is nulled
+// if the user is deleted, but actor_name keeps the trail readable.
+model AuditLog {
+  id           String   @id @default(uuid())
+  hackathon_id String?
+  actor_id     String?
+  actor_name   String?  @db.Text
+  action       String   @db.Text // e.g. "review.submit", "rubric.update", "export.csv"
+  entity_type  String   @db.Text
+  entity_id    String?  @db.Text
+  meta         Json?
+  created_at   DateTime @default(now())
+
+  actor     User?      @relation(fields: [actor_id], references: [id], onDelete: SetNull)
+  hackathon Hackathon? @relation(fields: [hackathon_id], references: [id], onDelete: SetNull)
+
+  @@index([hackathon_id, created_at])
+  @@index([actor_id])
+  @@index([action])
+}

@@ -1,0 +1,21 @@
+# .dogfood.toml (repo root)
+
+[portal]
+base_url = "http://localhost:3000"
+
+[tiers]
+claimed = ["T1" , "T2"]
+pitch = "Open-source hackathon platform: events, teams by invite link, project submission with deadlines, and a public gallery."
+
+[auth]
+organizer = "Cookie: session_token=7d13ef242974a78c2883c7ce1a5982002365e268217bccc311f9d7a897f6043d"
+participant = "Cookie: session_token=910ed8007582c08e189df99583829a03efa6c3dfda943e307b90ff086234c540"
+judge_a = "Cookie: session_token=2feefa3489d67d83cbd2efc9e32b139f614bad4b7d0e5b37ee9b8981a86ba3df"
+judge_b = "Cookie: session_token=11c6399c39462e9b718fece753bf8f2df69eb6cb4f619d88cb4d6d58fb540763"
+
+[routes]
+gallery      = "/projects"
+submit       = "/api/YOUR_CREATE_ROUTE"      # the URL createDraft posts to
+judge_scores = "/api/judge/scores"           # not built yet, so the check will FAIL honestly
+peer_scores  = "/api/judge/scores?judge=judge_a"
+csv_export   = "/api/organizer/hackathon/export-csv"

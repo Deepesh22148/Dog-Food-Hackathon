@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "seed": "tsx --env-file=.env.development prisma/seed.ts"
+    "seed": "tsx --env-file=.env.production prisma/seed.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.8.0",

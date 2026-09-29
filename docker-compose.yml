@@ -18,9 +18,8 @@ services:
       context: ./src
       dockerfile: Dockerfile
       target: migrate
-
     env_file:
-      - ./src.env.production
+      - ./src/.env.production
     depends_on:
       postgres:
         condition: service_healthy
@@ -29,14 +28,14 @@ services:
     build:
       context: ./src
       dockerfile: Dockerfile
-      target: runner
+      target: seed
     env_file:
-      - .env.production
+      - ./src/.env.production
     command: sh -c "npx prisma generate && npm run seed"
     depends_on:
       migrate:
         condition: service_completed_successfully
-        
+
   nextjs:
     build:
       context: ./src
@@ -45,7 +44,7 @@ services:
     ports:
       - "3000:3000"
     env_file:
-      - .env.production
+      - ./src/.env.production
     depends_on:
       migrate:
         condition: service_completed_successfully

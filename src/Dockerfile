@@ -84,6 +84,19 @@ RUN if [ -f package-lock.json ]; then \
     echo "No lockfile found." && exit 1; \
   fi
 
+
+FROM node:${NODE_VERSION} AS seed
+
+WORKDIR /app
+
+COPY --from=dependencies /app/node_modules ./node_modules
+
+COPY . .
+
+ENV NODE_ENV=production
+
+CMD ["sh", "-c", "npx prisma generate && npm run seed"]
+
 # ============================================
 # Stage 3: Run Next.js application
 # ============================================
